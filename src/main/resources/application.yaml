@@ -1,0 +1,44 @@
+spring:
+  data:
+    kafka:
+      host: localhost
+      port: 29092
+      consumer:
+        group-id: notification-service
+        auto-offset-reset: earliest
+        key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+        value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      topic:
+        notification:
+          name: notification.send
+          partitions: 1
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: your_email@gmail.com # https://www.baeldung.com/spring-email
+    password: whatever # генерируем для своего Google аккаунта по инструкции https://support.google.com/accounts/answer/185833
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          connection-timeout: 5000
+          timeout: 5000
+          write-timeout: 5000
+
+server:
+  port: 8083
+
+logging:
+  level:
+    root: info
+
+services:
+  strategy-service:
+    host: localhost
+    port: 8081
+  user-service:
+    host: localhost
+    port: 8080

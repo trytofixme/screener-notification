@@ -1,0 +1,23 @@
+package ru.screener.notification.config.context;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+
+@Component
+@Slf4j
+public class UserContext {
+
+    private final ThreadLocal<Long> userIdHolder = new ThreadLocal<>();
+
+    public void setUserId(long userId) {
+        userIdHolder.set(userId);
+    }
+
+    public long getUserId() {
+        return userIdHolder.get() != null ? userIdHolder.get() : 0;
+    }
+
+    public void clear() {
+        userIdHolder.remove();
+    }
+}
