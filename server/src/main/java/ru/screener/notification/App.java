@@ -12,9 +12,9 @@ import org.springframework.retry.annotation.EnableRetry;
 @EnableFeignClients("ru.screener.notification.client")
 @EnableKafka
 @EnableRetry
-public class NotificationServiceApp {
+public class App {
     public static void main(String[] args) {
-        new SpringApplicationBuilder(NotificationServiceApp.class)
+        new SpringApplicationBuilder(App.class)
                 .bannerMode(Banner.Mode.OFF)
                 .run(args);
     }
