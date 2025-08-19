@@ -1,7 +1,5 @@
 package ru.screener.notification.handler;
 
-import feign.FeignException;
-import feign.RetryableException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -10,7 +8,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import ru.screener.notification.exception.authorization.UserUnauthorizedException;
-import ru.screener.notification.model.dto.error.NotificationServiceErrorResponseDto;
+import ru.screener.notification.model.dto.error.ErrorResponseDto;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -26,8 +24,6 @@ public class NotificationServiceExceptionHandler {
     static {
         HTTP_STATUS_MAP.put(UserUnauthorizedException.class, HttpStatus.UNAUTHORIZED);
         HTTP_STATUS_MAP.put(MethodArgumentNotValidException.class, HttpStatus.BAD_REQUEST);
-        HTTP_STATUS_MAP.put(FeignException.class, HttpStatus.BAD_GATEWAY);
-        HTTP_STATUS_MAP.put(RetryableException.class, HttpStatus.BAD_GATEWAY);
     }
 
     private static final Map<Class<? extends Exception>, ErrorHandler> errorHandlers = Map.of(
@@ -37,11 +33,9 @@ public class NotificationServiceExceptionHandler {
 
     @ExceptionHandler({
             UserUnauthorizedException.class,
-            MethodArgumentNotValidException.class,
-            FeignException.class,
-            RetryableException.class
+            MethodArgumentNotValidException.class
     })
-    public ResponseEntity<NotificationServiceErrorResponseDto> handleException(Exception ex) {
+    public ResponseEntity<ErrorResponseDto> handleException(Exception ex) {
         ErrorHandler handler = getErrorHandler(ex);
         String errorMessage = handler.handle(ex);
         HttpStatus status = getHttpStatus(ex);
@@ -50,7 +44,7 @@ public class NotificationServiceExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<NotificationServiceErrorResponseDto> handleBaseException(Exception ex) {
+    public ResponseEntity<ErrorResponseDto> handleBaseException(Exception ex) {
         log.error("Unhandled exception caught", ex);
         return createErrorResponse("Internal server error", HttpStatus.INTERNAL_SERVER_ERROR, ex);
     }
@@ -63,12 +57,14 @@ public class NotificationServiceExceptionHandler {
         return errorHandlers.getOrDefault(ex.getClass(), Throwable::getMessage);
     }
 
-    private ResponseEntity<NotificationServiceErrorResponseDto> createErrorResponse(String errorMsg,
-                                                                            HttpStatus status,
-                                                                            Exception ex) {
+    private ResponseEntity<ErrorResponseDto> createErrorResponse(String errorMsg,
+                                                                 HttpStatus status,
+                                                                 Exception ex) {
         log.error("Error in notification-service: {}, response status {}", errorMsg, status, ex);
-        NotificationServiceErrorResponseDto response =
-                new NotificationServiceErrorResponseDto(errorMsg, LocalDateTime.now(), status.value());
+        ErrorResponseDto response = new ErrorResponseDto()
+                                            .setErrorMsg(errorMsg)
+                                            .setTimestamp(LocalDateTime.now())
+                                            .setCodeResponse(status.value());
         return new ResponseEntity<>(response, status);
     }
 

@@ -4,14 +4,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import ru.screener.notification.client.response.UserResponse;
 import ru.screener.notification.exception.kafka.InvalidKafkaMessageException;
 import ru.screener.notification.exception.messaging.MessageBuilderNotFoundException;
 import ru.screener.notification.messaging.MessageBuilder;
 import ru.screener.notification.service.NotificationService;
 
 import java.util.List;
-import java.util.Locale;
 
 @RequiredArgsConstructor
 @Slf4j
@@ -33,19 +31,19 @@ public abstract class AbstractKafkaListener<T, R> {
         }
     }
 
-    public String getMessage(R event, Locale locale) {
+    public String getMessage(R event) {
         return messageBuilders.stream()
                 .filter(builder -> builder.getInstance() == messageType)
                 .findAny()
                 .orElseThrow(() -> {
-                    log.warn("No MessageBuilder found for model class {}. Event: {}, Locale: {}",
-                            messageType.getSimpleName(), event, locale);
+                    log.warn("No MessageBuilder found for model class {}. Event: {}",
+                            messageType.getSimpleName(), event);
                     return new MessageBuilderNotFoundException(messageType.getSimpleName());
                 })
-                .buildMessage(event, locale);
+                .buildMessage(event);
     }
 
-    public void sendNotification(UserResponse user, String text) {
-        notificationService.send(user, text);
+    public void sendNotification(String telegramId, String text) {
+        notificationService.send(telegramId, text);
     }
 }

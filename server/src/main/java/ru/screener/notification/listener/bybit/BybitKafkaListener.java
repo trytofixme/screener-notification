@@ -4,8 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
-import ru.screener.notification.client.UserServiceClient;
-import ru.screener.notification.client.response.UserResponse;
 import ru.screener.notification.config.kafka.KafkaBybitTopicProperties;
 import ru.screener.notification.listener.AbstractKafkaListener;
 import ru.screener.notification.messaging.MessageBuilder;
@@ -20,22 +18,19 @@ import java.util.List;
 @Slf4j
 public class BybitKafkaListener extends AbstractKafkaListener<BybitEvent, BybitMessage> {
 
-    private final UserServiceClient userServiceClient;
     private final KafkaBybitTopicProperties topicProperties;
 
     public BybitKafkaListener(NotificationService notificationService,
                               List<MessageBuilder<BybitMessage>> messageBuilders,
-                              UserServiceClient userServiceClient,
                               KafkaBybitTopicProperties topicProperties,
                               ObjectMapper objectMapper) {
         super(notificationService, messageBuilders, objectMapper,
                 BybitEvent.class, BybitMessage.class);
-        this.userServiceClient = userServiceClient;
         this.topicProperties = topicProperties;
     }
 
     @KafkaListener(
-            topics = "${spring.data.kafka.topic.notification.name}",
+            topics = "${spring.kafka.topic.notification.name}",
             containerFactory = "kafkaListenerContainerFactory"
     )
     public void listenBybitTopic(String message) {
@@ -44,11 +39,9 @@ public class BybitKafkaListener extends AbstractKafkaListener<BybitEvent, BybitM
         BybitEvent.EventInfo eventInfo = bybitEvent.getEventInfo();
 
         BybitMessage bybitMessage = getBybitMessage(eventInfo.getSymbol(), eventInfo.getStrategyName(), eventInfo.getValue());
-        UserResponse userResponse = userServiceClient.getUserById(bybitEvent.getTelegramId());
+        String text = getMessage(bybitMessage);
 
-        String text = getMessage(bybitMessage, userResponse.getLocale());
-
-        sendNotification(userResponse, text);
+        sendNotification(bybitEvent.getTelegramId(), text);
     }
 
     private BybitMessage getBybitMessage(String symbol, String strategyName, BigDecimal value) {

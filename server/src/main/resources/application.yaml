@@ -12,6 +12,10 @@ spring:
         name: notification.send
         partitions: 1
 
+telegram:
+  bot-token: 8410759213:AAHBi8RHG3tDwlNylQI1V-6krT43YdIOa3Y
+  chat-id: YOUR_CHAT_ID
+
 server:
   port: 8083
 
