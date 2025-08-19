@@ -23,8 +23,7 @@ public class BybitMessageBuilder implements MessageBuilder<BybitMessage> {
         return BybitMessage.class;
     }
 
-    @Override
-    public String buildMessage(BybitMessage event, Locale locale) {
+    public String buildMessage(BybitMessage event) {
 
         Object[] args = new Object[] {
                 event.getSymbol(),
@@ -32,7 +31,7 @@ public class BybitMessageBuilder implements MessageBuilder<BybitMessage> {
                 event.getValue()
         };
 
-        String message = messageSource.getMessage(MESSAGE_LABEL, args, locale);
+        String message = messageSource.getMessage(MESSAGE_LABEL, args, Locale.getDefault());
 
         log.info("Message {} was written", message);
 

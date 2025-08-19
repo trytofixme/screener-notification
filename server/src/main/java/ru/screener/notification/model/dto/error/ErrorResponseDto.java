@@ -1,15 +1,13 @@
 package ru.screener.notification.model.dto.error;
 
-import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.experimental.Accessors;
 
 import java.time.LocalDateTime;
 
 @Data
-@AllArgsConstructor
-@NoArgsConstructor
-public class NotificationServiceErrorResponseDto {
+@Accessors(chain = true)
+public class ErrorResponseDto {
 
     private String errorMsg;
     private LocalDateTime timestamp;
