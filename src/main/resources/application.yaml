@@ -1,17 +1,13 @@
 spring:
-  data:
-    kafka:
-      host: localhost
-      port: 29092
-      consumer:
-        group-id: notification-service
-        auto-offset-reset: earliest
-        key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-        value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      topic:
-        notification:
-          name: notification.send
-          partitions: 1
+  kafka:
+    bootstrap-servers: localhost:29092
+    consumer:
+      group-id: notification-service
+      auto-offset-reset: earliest
+    topic:
+      notification:
+        name: notification.send
+        partitions: 1
 
   mail:
     host: smtp.gmail.com
@@ -42,3 +38,7 @@ services:
   user-service:
     host: localhost
     port: 8080
+
+telegram:
+  bot-token: YOUR_BOT_TOKEN
+  chat-id: YOUR_CHAT_ID
