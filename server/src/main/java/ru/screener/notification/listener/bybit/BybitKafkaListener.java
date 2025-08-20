@@ -3,51 +3,40 @@ package ru.screener.notification.listener.bybit;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 import ru.screener.notification.config.kafka.KafkaBybitTopicProperties;
 import ru.screener.notification.listener.AbstractKafkaListener;
 import ru.screener.notification.messaging.MessageBuilder;
-import ru.screener.notification.model.kafka.bybit.BybitEvent;
-import ru.screener.notification.model.kafka.bybit.BybitMessage;
+import ru.screener.notification.model.bybit.BybitEvent;
 import ru.screener.notification.service.NotificationService;
-
-import java.math.BigDecimal;
-import java.util.List;
 
 @Component
 @Slf4j
-public class BybitKafkaListener extends AbstractKafkaListener<BybitEvent, BybitMessage> {
+public class BybitKafkaListener extends AbstractKafkaListener<BybitEvent> {
 
     private final KafkaBybitTopicProperties topicProperties;
 
     public BybitKafkaListener(NotificationService notificationService,
-                              List<MessageBuilder<BybitMessage>> messageBuilders,
+                              MessageBuilder<BybitEvent> messageBuilder,
                               KafkaBybitTopicProperties topicProperties,
                               ObjectMapper objectMapper) {
-        super(notificationService, messageBuilders, objectMapper,
-                BybitEvent.class, BybitMessage.class);
+        super(notificationService, messageBuilder, objectMapper, BybitEvent.class);
         this.topicProperties = topicProperties;
     }
 
     @KafkaListener(
             topics = "${spring.kafka.topic.notification.name}",
+            groupId = "notification-service",
             containerFactory = "kafkaListenerContainerFactory"
     )
-    public void listenBybitTopic(String message) {
+    public void listenBybitTopic(String message, Acknowledgment ack) {
         BybitEvent bybitEvent = getEvent(message);
         log.info("Received a message from {}: {}", topicProperties.getName(), bybitEvent);
-        BybitEvent.EventInfo eventInfo = bybitEvent.getEventInfo();
 
-        BybitMessage bybitMessage = getBybitMessage(eventInfo.getSymbol(), eventInfo.getStrategyName(), eventInfo.getValue());
-        String text = getMessage(bybitMessage);
+        String messageText = getMessage(bybitEvent);
 
-        sendNotification(bybitEvent.getTelegramId(), text);
-    }
-
-    private BybitMessage getBybitMessage(String symbol, String strategyName, BigDecimal value) {
-        return new BybitMessage()
-                .setSymbol(symbol)
-                .setStrategyName(strategyName)
-                .setValue(value);
+        sendNotification(bybitEvent.getTelegramId(), messageText);
+        ack.acknowledge();
     }
 }

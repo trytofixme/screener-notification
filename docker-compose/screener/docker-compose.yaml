@@ -1,0 +1,58 @@
+version: '3'
+services:
+  master_postgres:
+    image: postgres:13.3
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=postgres
+    ports:
+      - '5433:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  kafka:
+    image: bitnami/kafka:3.6
+    container_name: screener-kafka
+    restart: unless-stopped
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      - KAFKA_CFG_NODE_ID=0
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,EXTERNAL://:29092,CONTROLLER://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,EXTERNAL://localhost:29092
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
+      - KAFKA_KRAFT_CLUSTER_ID=abcdefghijklmno0123456
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=false
+    volumes:
+      - kafka_data:/bitnami/kafka
+
+  kafka-ui:
+    container_name: screener-kafka-ui
+    image: provectuslabs/kafka-ui:latest
+    ports:
+      - 8082:8080
+    environment:
+      DYNAMIC_CONFIG_ENABLED: true
+      KAFKA_CLUSTERS_0_NAME: cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    depends_on:
+      - kafka
+
+  create-topics:
+    image: bitnami/kafka:3.6
+    depends_on:
+      - kafka
+    volumes:
+      - ./create-topics.sh:/create-topics.sh
+      - ./topics.conf:/topics.conf
+    entrypoint: [ "/bin/bash", "/create-topics.sh" ]
+
+volumes:
+  postgres_data:
+  kafka_data:
