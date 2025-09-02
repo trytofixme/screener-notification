@@ -1,4 +1,4 @@
-package ru.screener.notification.exception.kafka;
+package ru.screener.notification.errors.kafka;
 
 public class InvalidKafkaMessageException extends RuntimeException {
 
