@@ -17,7 +17,6 @@ spring:
 
 telegram:
   bot-token: 8410759213:AAHBi8RHG3tDwlNylQI1V-6krT43YdIOa3Y
-  chat-id: YOUR_CHAT_ID
 
 server:
   port: 8083
@@ -25,11 +24,3 @@ server:
 logging:
   level:
     root: info
-
-services:
-  strategy-service:
-    host: localhost
-    port: 8081
-  user-service:
-    host: localhost
-    port: 8080
