@@ -1,0 +1,63 @@
+plugins {
+    id "org.springframework.boot" version "3.3.3" apply false
+    id "io.spring.dependency-management" version "1.1.4" apply false
+    id "jacoco"
+}
+
+subprojects {
+    apply plugin: "java"
+    apply plugin: "jacoco"
+
+    group = "ru.screener"
+    version = "1.0"
+
+    repositories { mavenCentral() }
+
+    plugins.withId("jacoco") {
+        tasks.withType(Test).configureEach {
+            useJUnitPlatform()
+            testLogging { events "passed", "skipped", "failed" }
+            finalizedBy(tasks.named("jacocoTestReport"))
+        }
+
+        tasks.named("jacocoTestReport", JacocoReport).configure {
+            dependsOn(tasks.named("test"))
+            reports {
+                xml.required = true
+                html.required = true
+                csv.required = true
+                xml.destination file("$buildDir/reports/jacoco.xml")
+                csv.destination file("$buildDir/reports/jacoco.csv")
+                html.destination file("$buildDir/reports/jacoco.html")
+            }
+        }
+    }
+
+    java {
+        toolchain { languageVersion = JavaLanguageVersion.of(21) }
+    }
+}
+
+tasks.register("generateMergedReport", JacocoReport) {
+    dependsOn subprojects.collect { it.tasks.named("jacocoTestReport") }
+
+    additionalSourceDirs.from files(subprojects.collect { it.sourceSets.main.allSource.srcDirs })
+    sourceDirectories.from files(subprojects.collect { it.sourceSets.main.allSource.srcDirs })
+    classDirectories.from files(subprojects.collect { it.sourceSets.main.output })
+
+    executionData.from fileTree(project.rootDir) {
+        include "**/build/jacoco/test.exec"
+        include "**/build/jacoco/*.exec"
+    }
+
+    reports {
+        xml.required = true
+        csv.required = true
+        html.required = true
+        xml.destination file("$buildDir/reports/jacoco-merged.xml")
+        csv.destination file("$buildDir/reports/jacoco-merged.csv")
+        html.destination file("$buildDir/reports/jacoco-merged")
+    }
+}
+
+tasks.withType(Test).configureEach { finalizedBy("generateMergedReport") }

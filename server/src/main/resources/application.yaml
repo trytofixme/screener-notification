@@ -1,0 +1,26 @@
+spring:
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
+    consumer:
+      group-id: notification-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    properties:
+      client.dns.lookup: use_all_dns_ips
+    listener:
+      ack-mode: manual
+    topic:
+      notification:
+        name: notification.send
+        partitions: 1
+
+telegram:
+  bot-token: 8410759213:AAHBi8RHG3tDwlNylQI1V-6krT43YdIOa3Y
+
+server:
+  port: 8082
+
+logging:
+  level:
+    root: info
