@@ -19,7 +19,7 @@ telegram:
   bot-token: 8410759213:AAHBi8RHG3tDwlNylQI1V-6krT43YdIOa3Y
 
 server:
-  port: 8083
+  port: 8082
 
 logging:
   level:
