@@ -35,6 +35,4 @@ springBoot {
     mainClass = 'ru.screener.notification.App'
 }
 
-test {
-    systemProperty 'spring.profiles.active', 'test'
-}
+tasks.named('jar') { enabled = false }
