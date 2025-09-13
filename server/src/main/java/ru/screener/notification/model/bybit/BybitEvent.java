@@ -11,7 +11,7 @@ import java.math.BigDecimal;
 @Accessors(chain = true)
 public class BybitEvent {
 
-    private String telegramId;
+    private Long telegramId;
     private Strategy strategy;
     private String symbol;
     private String timeframe;

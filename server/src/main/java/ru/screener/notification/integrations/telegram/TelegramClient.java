@@ -26,9 +26,9 @@ public class TelegramClient implements NotificationService {
     }
 
     @Override
-    public void send(String userId, String message) {
+    public void send(Long userId, String message) {
         Map<String, String> body = Map.of(
-                "chat_id", userId,
+                "chat_id", userId.toString(),
                 "text", message
         );
 

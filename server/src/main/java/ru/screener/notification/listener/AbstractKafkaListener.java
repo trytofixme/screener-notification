@@ -31,7 +31,7 @@ public abstract class AbstractKafkaListener<T> {
         return messageBuilder.buildMessage(event);
     }
 
-    public void sendNotification(String userId, String text) {
+    public void sendNotification(Long userId, String text) {
         notificationService.send(userId, text);
     }
 }
