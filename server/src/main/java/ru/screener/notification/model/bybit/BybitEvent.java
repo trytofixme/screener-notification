@@ -1,6 +1,8 @@
 package ru.screener.notification.model.bybit;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.experimental.Accessors;
 import ru.screener.notification.model.strategies.Direction;
 import ru.screener.notification.model.strategies.Strategy;
@@ -8,6 +10,8 @@ import ru.screener.notification.model.strategies.Strategy;
 import java.math.BigDecimal;
 
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
 @Accessors(chain = true)
 public class BybitEvent {
 
