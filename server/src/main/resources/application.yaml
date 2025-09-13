@@ -38,11 +38,6 @@ spring:
   config:
     activate:
       on-cloud-platform: kubernetes
-  datasource:
-    driver-class-name: org.postgresql.Driver
-    url: ${SPRING_DATASOURCE_URL}
-    username: ${SPRING_DATASOURCE_USERNAME}
-    password: ${SPRING_DATASOURCE_PASSWORD}
 
 management:
   endpoint:
@@ -53,7 +48,7 @@ management:
         liveness:
           include: livenessState
         readiness:
-          include: readinessState,db
+          include: readinessState
   endpoints:
     web:
       base-path: /actuator
