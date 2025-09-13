@@ -1,4 +1,4 @@
-package ru.screener.notification.service.telegram;
+package ru.screener.notification.integrations.telegram;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,25 +14,30 @@ import java.util.Map;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class TelegramService implements NotificationService {
+public class TelegramClient implements NotificationService {
+
+    private static final String SEND_MESSAGE_METHOD = "sendMessage";
 
     private final RestTemplate restTemplate;
-    private final TelegramProperties properties;
+    private final TelegramProperties telegramProperties;
+
+    private String url(String method) {
+        return String.format("%s/bot%s/%s", telegramProperties.getApiBaseUrl(), telegramProperties.getBotToken(), method);
+    }
 
     @Override
     public void send(String userId, String message) {
-        String url = "https://api.telegram.org/bot" + properties.getBotToken() + "/sendMessage";
         Map<String, String> body = Map.of(
                 "chat_id", userId,
                 "text", message
         );
 
         RequestEntity<Map<String, String>> request = RequestEntity
-                .post(url)
+                .post(url(SEND_MESSAGE_METHOD))
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(body);
         restTemplate.exchange(request, String.class);
 
-        log.info("Telegram sent to user {}: {}", userId, message);
+        log.info("Telegram notification sent to user {}: {}", userId, message);
     }
 }

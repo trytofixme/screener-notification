@@ -26,7 +26,7 @@ public class BybitKafkaListener extends AbstractKafkaListener<BybitEvent> {
     }
 
     @KafkaListener(
-            topics = "${spring.kafka.topic.notification.name}",
+            topics = "${app.kafka.topic.notification.name}",
             groupId = "notification-service",
             containerFactory = "kafkaListenerContainerFactory"
     )

@@ -13,14 +13,52 @@ spring:
     topic:
       notification:
         name: notification.send
-        partitions: 1
+        partitions: 3
 
-telegram:
-  bot-token: 8410759213:AAHBi8RHG3tDwlNylQI1V-6krT43YdIOa3Y
+app:
+  kafka:
+    topic:
+      notification:
+        name: notification.send
+        partitions: 3
 
 server:
   port: 8082
 
+telegram:
+  bot-token: 8410759213:AAHMQMTEt3RThPDTAXq_0JVb5XrHNUelgy4
+  api-base-url: https://api.telegram.org
+
 logging:
   level:
     root: info
+
+---
+spring:
+  config:
+    activate:
+      on-cloud-platform: kubernetes
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState,db
+  endpoints:
+    web:
+      base-path: /actuator
+      exposure:
+        include: health,info,metrics,prometheus
+  health:
+    kafka:
+      enabled: false
