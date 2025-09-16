@@ -36,7 +36,10 @@ public class BybitKafkaListener extends AbstractKafkaListener<BybitEvent> {
 
         String messageText = getMessage(bybitEvent);
 
-        sendNotification(bybitEvent.getTelegramId(), messageText);
+        sendNotification(bybitEvent.getTelegramId(), messageText)
+                .doOnError(e -> log.warn("TG send failed for {}: {}", bybitEvent.getTelegramId(), e.toString()))
+                .subscribe();
+
         ack.acknowledge();
     }
 }

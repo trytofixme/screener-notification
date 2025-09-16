@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Mono;
 import ru.screener.notification.errors.kafka.InvalidKafkaMessageException;
 import ru.screener.notification.messaging.MessageBuilder;
 import ru.screener.notification.service.NotificationService;
@@ -31,7 +32,7 @@ public abstract class AbstractKafkaListener<T> {
         return messageBuilder.buildMessage(event);
     }
 
-    public void sendNotification(Long userId, String text) {
-        notificationService.send(userId, text);
+    protected Mono<Void> sendNotification(Long chatId, String text) {
+        return notificationService.sendAsync(chatId, text);
     }
 }

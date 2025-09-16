@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
+import ru.screener.notification.config.telegram.TelegramProperties;
 import ru.screener.notification.errors.telegram.PermanentTelegramException;
 import ru.screener.notification.errors.telegram.RetryAfterException;
 import ru.screener.notification.errors.telegram.TooManyRequestsException;
@@ -24,17 +25,15 @@ public class TelegramService implements NotificationService {
     private static final int PER_CHAT_MIN_INTERVAL_MS = 1000;
 
     private final TelegramClient telegramClient;
+    private final TelegramProperties telegramProperties;
 
+    private final Duration requestTimeout = Duration.ofMillis(telegramProperties.getReadTimeoutMs());
     private final ConcurrentHashMap<Long, AtomicLong> chatLastSend = new ConcurrentHashMap<>();
 
     @Override
-    public void send(Long userId, String message) {
-        TelegramSendRequestDto dto = TelegramRequestBuilder.buildPlain(userId, message);
-        send(dto).block();
-    }
-
-    public Mono<Void> send(TelegramSendRequestDto dto) {
+    public Mono<Void> sendAsync(Long chatId, String text) {
         long now = System.currentTimeMillis();
+        TelegramSendRequestDto dto = TelegramRequestBuilder.buildPlain(chatId, text);
         AtomicLong last = chatLastSend.computeIfAbsent(dto.chat_id(), k -> new AtomicLong(0));
         long elapsed = now - last.get();
         long sleepMs = elapsed >= PER_CHAT_MIN_INTERVAL_MS ? 0 : PER_CHAT_MIN_INTERVAL_MS - elapsed;
@@ -47,6 +46,7 @@ public class TelegramService implements NotificationService {
 
     private Mono<Void> sendOnce(TelegramSendRequestDto dto) {
         return telegramClient.doPost(dto)
+                .timeout(requestTimeout)
                 .flatMap(resp -> {
                     if (resp.statusCode().is2xxSuccessful()) return Mono.empty();
 

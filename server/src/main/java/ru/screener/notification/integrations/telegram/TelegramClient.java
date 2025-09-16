@@ -6,6 +6,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 import ru.screener.notification.errors.telegram.RetryAfterException;
@@ -73,7 +74,11 @@ public class TelegramClient {
     }
 
     private boolean is5xxOrIo(Retry.RetrySignal signal) {
-        return signal.failure() instanceof TransientTelegramException;
+        Throwable f = signal.failure();
+        return f instanceof TransientTelegramException
+                || f instanceof WebClientRequestException
+                || f instanceof io.netty.handler.timeout.ReadTimeoutException
+                || f instanceof java.io.IOException;
     }
 
     private static Duration jitterBackoff(long attempt, long baseMs, long maxMs) {
