@@ -9,4 +9,7 @@ public class TelegramProperties {
 
     private String botToken;
     private String apiBaseUrl;
+    private int connectTimeoutMs = 3000;
+    private int readTimeoutMs = 5000;
+    private int maxGlobalRps = 25;
 }

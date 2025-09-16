@@ -3,41 +3,82 @@ package ru.screener.notification.integrations.telegram;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
-import org.springframework.http.RequestEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
-import ru.screener.notification.config.telegram.TelegramProperties;
-import ru.screener.notification.service.NotificationService;
+import org.springframework.web.reactive.function.client.ClientResponse;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
+import ru.screener.notification.errors.telegram.RetryAfterException;
+import ru.screener.notification.errors.telegram.TooManyRequestsException;
+import ru.screener.notification.errors.telegram.TransientTelegramException;
+import ru.screener.notification.model.dto.TelegramSendRequestDto;
 
-import java.util.Map;
+import java.time.Duration;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class TelegramClient implements NotificationService {
+public class TelegramClient {
 
-    private static final String SEND_MESSAGE_METHOD = "sendMessage";
+    private static final String SEND_MESSAGE_METHOD = "/sendMessage";
 
-    private final RestTemplate restTemplate;
-    private final TelegramProperties telegramProperties;
+    private final WebClient webClient;
 
-    private String url(String method) {
-        return String.format("%s/bot%s/%s", telegramProperties.getApiBaseUrl(), telegramProperties.getBotToken(), method);
+    public Mono<ClientResponse> doPost(TelegramSendRequestDto dto) {
+        return webClient.post()
+                .uri(SEND_MESSAGE_METHOD)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(dto)
+                .exchangeToMono(Mono::just);
     }
 
-    @Override
-    public void send(Long userId, String message) {
-        Map<String, String> body = Map.of(
-                "chat_id", userId.toString(),
-                "text", message
-        );
+    public Retry telegramRetry() {
+        return Retry.from(companion -> companion.handle((signal, sink) -> {
+            Throwable e = signal.failure();
+            switch (e) {
+                case null -> {
+                    sink.next(Duration.ZERO);
+                    return;
+                }
+                case RetryAfterException rae -> {
+                    sink.next(Duration.ofSeconds(rae.seconds()));
+                    return;
+                }
+                case TooManyRequestsException ignored -> {
+                    long n = signal.totalRetries();
+                    if (n >= 3) {
+                        sink.error(e);
+                        return;
+                    }
 
-        RequestEntity<Map<String, String>> request = RequestEntity
-                .post(url(SEND_MESSAGE_METHOD))
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(body);
-        restTemplate.exchange(request, String.class);
+                    Duration backoff = jitterBackoff(n, 500, 4000);
+                    sink.next(backoff);
+                    return;
+                }
+                default -> {
+                }
+            }
 
-        log.info("Telegram notification sent to user {}: {}", userId, message);
+            if (e instanceof TransientTelegramException ||
+                    is5xxOrIo(signal)) {
+                long n = signal.totalRetries();
+                if (n >= 5) { sink.error(e); return; }
+                Duration backoff = jitterBackoff(n, 300, 5000);
+                sink.next(backoff);
+                return;
+            }
+
+            sink.error(e);
+        }));
+    }
+
+    private boolean is5xxOrIo(Retry.RetrySignal signal) {
+        return signal.failure() instanceof TransientTelegramException;
+    }
+
+    private static Duration jitterBackoff(long attempt, long baseMs, long maxMs) {
+        double exp = Math.min(maxMs, baseMs * Math.pow(2, attempt));
+        double jitter = 0.1 + Math.random() * 0.2;
+        return Duration.ofMillis((long) (exp * (1.0 + jitter)));
     }
 }
