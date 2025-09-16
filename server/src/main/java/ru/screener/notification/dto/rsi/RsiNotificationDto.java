@@ -1,4 +1,4 @@
-package ru.screener.notification.model.bybit;
+package ru.screener.notification.dto.rsi;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -13,7 +13,7 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 @Accessors(chain = true)
-public class BybitEvent {
+public class RsiNotificationDto {
 
     private Long telegramId;
     private Strategy strategy;

@@ -8,8 +8,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.kafka.annotation.EnableKafka;
 import ru.screener.notification.config.telegram.TelegramProperties;
 
-@SpringBootApplication(exclude = {DataSourceAutoConfiguration.class})
 @EnableKafka
+@SpringBootApplication(exclude = {DataSourceAutoConfiguration.class})
 @EnableConfigurationProperties(TelegramProperties.class)
 public class App {
     public static void main(String[] args) {

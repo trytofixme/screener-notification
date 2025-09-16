@@ -1,4 +1,4 @@
-package ru.screener.notification.model.dto;
+package ru.screener.notification.dto.telegram;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;

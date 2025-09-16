@@ -1,29 +1,27 @@
-package ru.screener.notification.messaging.bybit;
+package ru.screener.notification.messaging.rsi;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import ru.screener.notification.messaging.MessageBuilder;
-import ru.screener.notification.model.bybit.BybitEvent;
+import ru.screener.notification.dto.rsi.RsiNotificationDto;
 import ru.screener.notification.model.strategies.Direction;
 
 import java.text.DecimalFormat;
 
 @Component
 @Slf4j
-public class BybitMessageBuilder implements MessageBuilder<BybitEvent> {
+public class RsiMessageBuilder implements MessageBuilder<RsiNotificationDto> {
 
     private static final DecimalFormat DF = new DecimalFormat("0.##");
 
     @Override
-    public String buildMessage(BybitEvent event) {
+    public String buildMessage(RsiNotificationDto event) {
         return switch (event.getStrategy()) {
             case RSI -> formatRsi(event);
-            case PUMP_DUMP -> null;
-            case OI -> null;
         };
     }
 
-    private String formatRsi(BybitEvent event) {
+    private String formatRsi(RsiNotificationDto event) {
         String circle = circle(event.getDirection());
         String arrow = arrow(event.getDirection());
         String rsi = DF.format(event.getRsi());
@@ -37,9 +35,5 @@ public class BybitMessageBuilder implements MessageBuilder<BybitEvent> {
 
     private String arrow(Direction direction) {
         return direction == Direction.UP ? "🔺" : "🔻";
-    }
-
-    private String sign(Direction direction) {
-        return direction == Direction.UP ? "+" : "-";
     }
 }

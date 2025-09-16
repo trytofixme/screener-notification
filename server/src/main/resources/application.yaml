@@ -7,13 +7,16 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
     properties:
+      max.poll.interval.ms: 300000
+      max.poll.records: 1
+      heartbeat.interval.ms: 3000
+      session.timeout.ms: 10000
+      fetch.max.wait.ms: 500
+      fetch.min.bytes: 1
       client.dns.lookup: use_all_dns_ips
     listener:
-      ack-mode: manual
-    topic:
-      notification:
-        name: notification.send
-        partitions: 3
+      concurrency: 3
+      ack-mode: manual_immediate
 
 app:
   kafka:
@@ -28,6 +31,24 @@ server:
 telegram:
   bot-token: 8410759213:AAHMQMTEt3RThPDTAXq_0JVb5XrHNUelgy4
   api-base-url: https://api.telegram.org
+  methods:
+    send-message: /sendMessage
+  timeouts:
+    connect-ms: 3000
+    read-ms: 5000
+  ratelimit:
+    per-chat-min-interval-ms: 1000
+    max-global-rps: 25
+  retry:
+    too-many-requests-max: 3
+    transient-max: 5
+    base-ms: 300
+    base-429-ms: 500
+    max-ms: 5000
+    jitter-low: 0.1
+    jitter-high: 0.2
+  http:
+    max-in-memory-bytes: 1048576
 
 logging:
   level:
