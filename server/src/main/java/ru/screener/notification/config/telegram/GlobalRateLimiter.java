@@ -5,11 +5,13 @@ import org.springframework.stereotype.Component;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.SignalType;
 import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
 import java.time.Duration;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Semaphore;
 
@@ -39,7 +41,10 @@ public class GlobalRateLimiter implements DisposableBean {
                             bucket.release();
                             break;
                         }
-                        sink.tryEmitEmpty();
+                        Sinks.EmitResult r = sink.tryEmitEmpty();
+                        if (r.isFailure()) {
+                            bucket.release();
+                        }
                     }
                 });
     }
@@ -48,13 +53,22 @@ public class GlobalRateLimiter implements DisposableBean {
         if (bucket.tryAcquire()) return Mono.empty();
 
         Sinks.One<Void> sink = Sinks.one();
-        waiters.add(sink);
-        return sink.asMono();
+        return sink.asMono()
+                .doOnSubscribe(s -> waiters.add(sink))
+                .doFinally(sig -> {
+                    if (sig == SignalType.CANCEL) {
+                        waiters.remove(sink);
+                    }
+                });
     }
 
     @Override
     public void destroy() {
         if (refillTask != null) refillTask.dispose();
         scheduler.dispose();
+        for (Sinks.One<Void> s : waiters) {
+            s.tryEmitError(new CancellationException("GlobalRateLimiter destroyed"));
+        }
+        waiters.clear();
     }
 }
