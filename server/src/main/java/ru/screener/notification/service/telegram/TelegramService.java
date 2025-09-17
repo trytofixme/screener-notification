@@ -16,6 +16,7 @@ import ru.screener.notification.utils.request.TelegramRequestBuilder;
 
 import java.time.Duration;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Slf4j
@@ -45,6 +46,7 @@ public class TelegramService implements NotificationService {
 
     private Mono<Void> sendOnce(TelegramSendRequestDto dto) {
         return telegramClient.doPost(dto)
+                .timeout(Duration.ofSeconds(20))
                 .flatMap(resp -> {
                     if (resp.statusCode().is2xxSuccessful()) return Mono.empty();
 
@@ -61,6 +63,7 @@ public class TelegramService implements NotificationService {
                             .flatMap(body -> Mono.error(new PermanentTelegramException(
                                     "Telegram returned %s: %s".formatted(resp.statusCode(), body))));
                 })
+                .onErrorMap(TimeoutException.class, t -> new TransientTelegramException("HTTP Timeout"))
                 .retryWhen(telegramClient.telegramRetry()).then();
     }
 }

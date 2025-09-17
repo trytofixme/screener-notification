@@ -58,6 +58,9 @@ public class BybitKafkaListener extends AbstractKafkaListener<RsiNotificationDto
                         ack.acknowledge();
                     }
                 })
-                .subscribe();
+                .subscribe(
+                        null,
+                        ex -> log.warn("Send failed, cause {}", ex.getMessage())
+                );
     }
 }
