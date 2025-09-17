@@ -46,7 +46,7 @@ public class TelegramService implements NotificationService {
 
     private Mono<Void> sendOnce(TelegramSendRequestDto dto) {
         return telegramClient.doPost(dto)
-                .timeout(Duration.ofDays(telegramProperties.getTimeouts().getReadMs()))
+                .timeout(Duration.ofDays(telegramProperties.getReadTimeoutMs()))
                 .flatMap(resp -> {
                     if (resp.statusCode().is2xxSuccessful()) return Mono.empty();
 

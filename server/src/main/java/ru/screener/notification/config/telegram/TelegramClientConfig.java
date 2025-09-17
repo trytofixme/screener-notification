@@ -17,21 +17,17 @@ import java.util.concurrent.TimeUnit;
 public class TelegramClientConfig {
 
     @Bean
-    WebClient telegramWebClient(TelegramProperties telegramProperties) {
+    WebClient telegramWebClient(TelegramProperties props) {
         HttpClient httpClient = HttpClient.create()
-                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, telegramProperties.getTimeouts().getConnectMs())
-                .responseTimeout(Duration.ofMillis(telegramProperties.getTimeouts().getReadMs()))
-                .doOnConnected(connection -> connection.addHandlerLast(
-                        new ReadTimeoutHandler(telegramProperties.getTimeouts().getReadMs(), TimeUnit.MILLISECONDS))
-                );
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, props.getConnectTimeoutMs())
+                .responseTimeout(Duration.ofMillis(props.getReadTimeoutMs()))
+                .doOnConnected(conn -> conn.addHandlerLast(new ReadTimeoutHandler(props.getReadTimeoutMs(), TimeUnit.MILLISECONDS)));
 
         return WebClient.builder()
-                .baseUrl(telegramProperties.getApiBaseUrl() + "/bot" + telegramProperties.getBotToken())
+                .baseUrl(props.getApiBaseUrl() + "/bot" + props.getBotToken())
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .exchangeStrategies(ExchangeStrategies.builder()
-                        .codecs(clientCodecConfigurer -> {
-                            clientCodecConfigurer.defaultCodecs().maxInMemorySize(telegramProperties.getHttp().getMaxInMemoryBytes());
-                        })
+                        .codecs(c -> c.defaultCodecs().maxInMemorySize(1024 * 1024))
                         .build())
                 .build();
     }
