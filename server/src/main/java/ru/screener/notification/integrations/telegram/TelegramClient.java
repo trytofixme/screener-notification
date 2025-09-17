@@ -1,5 +1,6 @@
 package ru.screener.notification.integrations.telegram;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -37,15 +38,26 @@ public class TelegramClient {
                             if (resp.statusCode().is2xxSuccessful()) return resp.releaseBody();
 
                             if (resp.statusCode().value() == 429) {
-                                return resp.bodyToMono(String.class).defaultIfEmpty("")
-                                        .then(Mono.defer(() -> {
+                                return resp.bodyToMono(String.class)
+                                        .defaultIfEmpty("")
+                                        .flatMap(body -> {
+                                            Integer secs = null;
+                                            // 1) заголовок
                                             List<String> ra = resp.headers().asHttpHeaders().get("Retry-After");
                                             if (ra != null && !ra.isEmpty()) {
-                                                try { return Mono.error(new RetryAfterException(Integer.parseInt(ra.get(0)))); }
-                                                catch (NumberFormatException ignore) { /* falls through */ }
+                                                try { secs = Integer.parseInt(ra.get(0)); } catch (NumberFormatException ignore) {}
                                             }
+                                            // 2) JSON parameters.retry_after
+                                            if (secs == null && !body.isEmpty()) {
+                                                try {
+                                                    var node = new ObjectMapper().readTree(body);
+                                                    var p = node.path("parameters").path("retry_after");
+                                                    if (p.isInt()) secs = p.asInt();
+                                                } catch (Exception ignore) {}
+                                            }
+                                            if (secs != null) return Mono.error(new RetryAfterException(secs));
                                             return Mono.error(new TooManyRequestsException());
-                                        }));
+                                        });
                             }
 
                             if (resp.statusCode().is5xxServerError()) {

@@ -38,18 +38,18 @@ public class BybitKafkaListener extends AbstractKafkaListener<RsiNotificationDto
         RsiNotificationDto event = getEvent(message);
         log.info("Received a message from {}: {}", topicProperties.getName(), event);
 
-//        String text = getMessage(event);
-//
-//        sendNotification(event.getTelegramId(), text)
-//                .timeout(Duration.ofSeconds(15)) // крайний дедлайн для всей операции
-//                .doOnSuccess(v -> {
-//                    ack.acknowledge();
-//                    log.debug("Sent to {} OK", event.getTelegramId());
-//                })
-//                .onErrorResume(ex -> {
-//                    ack.acknowledge();
-//                    return Mono.empty();
-//                })
-//                .subscribe(); // ошибок «наружу» больше нет — onErrorDropped не появится
+        String text = getMessage(event);
+
+        sendNotification(event.getTelegramId(), text)
+                .timeout(Duration.ofSeconds(15)) // крайний дедлайн для всей операции
+                .doOnSuccess(v -> {
+                    ack.acknowledge();
+                    log.debug("Sent to {} OK", event.getTelegramId());
+                })
+                .onErrorResume(ex -> {
+                    ack.acknowledge();
+                    return Mono.empty();
+                })
+                .subscribe(); // ошибок «наружу» больше нет — onErrorDropped не появится
     }
 }
