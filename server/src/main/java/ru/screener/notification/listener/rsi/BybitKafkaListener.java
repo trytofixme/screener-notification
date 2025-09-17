@@ -41,7 +41,6 @@ public class BybitKafkaListener extends AbstractKafkaListener<RsiNotificationDto
         String text = getMessage(event);
 
         sendNotification(event.getTelegramId(), text)
-                .timeout(Duration.ofSeconds(15)) // крайний дедлайн для всей операции
                 .doOnSuccess(v -> {
                     ack.acknowledge();
                     log.debug("Sent to {} OK", event.getTelegramId());
@@ -50,6 +49,6 @@ public class BybitKafkaListener extends AbstractKafkaListener<RsiNotificationDto
                     ack.acknowledge();
                     return Mono.empty();
                 })
-                .subscribe(); // ошибок «наружу» больше нет — onErrorDropped не появится
+                .subscribe();
     }
 }
