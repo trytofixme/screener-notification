@@ -9,6 +9,7 @@ import org.springframework.kafka.listener.MessageListenerContainer;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
+import ru.screener.notification.config.kafka.KafkaNotificationTopicProperties;
 import ru.screener.notification.dto.rsi.RsiNotificationDto;
 import ru.screener.notification.errors.kafka.InvalidKafkaMessageException;
 import ru.screener.notification.listener.AbstractKafkaListener;
@@ -21,22 +22,31 @@ import java.time.Duration;
 @Slf4j
 public class RsiNotificationKafkaListener extends AbstractKafkaListener<RsiNotificationDto> {
 
+    private final KafkaNotificationTopicProperties topicProperties;
+
     public RsiNotificationKafkaListener(NotificationService notificationService,
+                                        KafkaNotificationTopicProperties topicProperties,
                                         MessageBuilder<RsiNotificationDto> messageBuilder,
                                         ObjectMapper objectMapper) {
         super(notificationService, messageBuilder, objectMapper, RsiNotificationDto.class);
+        this.topicProperties = topicProperties;
     }
 
-    @KafkaListener(topics = "${app.kafka.topic.notification.name}", containerFactory = "kafkaListenerContainerFactory")
-    public void listenBybitTopic(ConsumerRecord<String, String> record, Acknowledgment ack) {
-        try {
-            RsiNotificationDto dto = getEvent(record.value());
-            sendNotification(dto.getTelegramId(),getMessage(dto))
-                    .block(); // да, синхронный мост, но на ОДНО сообщение
-            ack.acknowledge();
-        } catch (Exception e) {
-            // решите политику: nack/skip/DLT
-            ack.nack(Duration.ofSeconds(5));
-        }
+    @KafkaListener(
+            topics = "${app.kafka.topic.notification.name}",
+            groupId = "notification-service",
+            containerFactory = "kafkaListenerContainerFactory"
+    )
+    public void listenBybitTopic(String message, Acknowledgment ack) {
+        RsiNotificationDto bybitEvent = getEvent(message);
+        log.info("Received a message from {}: {}", topicProperties.getName(), bybitEvent);
+
+        String messageText = getMessage(bybitEvent);
+
+        sendNotification(bybitEvent.getTelegramId(), messageText)
+                .doOnError(e -> log.warn("TG send failed for {}: {}", bybitEvent.getTelegramId(), e.toString()))
+                .subscribe();
+
+        ack.acknowledge();
     }
 }
