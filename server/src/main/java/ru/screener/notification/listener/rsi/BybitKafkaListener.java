@@ -20,14 +20,14 @@ import java.time.Duration;
 
 @Component
 @Slf4j
-public class RsiNotificationKafkaListener extends AbstractKafkaListener<RsiNotificationDto> {
+public class BybitKafkaListener extends AbstractKafkaListener<RsiNotificationDto> {
 
     private final KafkaNotificationTopicProperties topicProperties;
 
-    public RsiNotificationKafkaListener(NotificationService notificationService,
-                                        KafkaNotificationTopicProperties topicProperties,
-                                        MessageBuilder<RsiNotificationDto> messageBuilder,
-                                        ObjectMapper objectMapper) {
+    public BybitKafkaListener(NotificationService notificationService,
+                              MessageBuilder<RsiNotificationDto> messageBuilder,
+                              KafkaNotificationTopicProperties topicProperties,
+                              ObjectMapper objectMapper) {
         super(notificationService, messageBuilder, objectMapper, RsiNotificationDto.class);
         this.topicProperties = topicProperties;
     }
@@ -43,10 +43,7 @@ public class RsiNotificationKafkaListener extends AbstractKafkaListener<RsiNotif
 
         String messageText = getMessage(bybitEvent);
 
-        sendNotification(bybitEvent.getTelegramId(), messageText)
-                .doOnError(e -> log.warn("TG send failed for {}: {}", bybitEvent.getTelegramId(), e.toString()))
-                .subscribe();
-
+        sendNotification(bybitEvent.getTelegramId(), messageText);
         ack.acknowledge();
     }
 }

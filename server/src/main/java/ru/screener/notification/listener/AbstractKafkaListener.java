@@ -32,7 +32,7 @@ public abstract class AbstractKafkaListener<T> {
         return messageBuilder.buildMessage(event);
     }
 
-    protected Mono<Void> sendNotification(Long chatId, String text) {
-        return notificationService.sendAsync(chatId, text);
+    public void sendNotification(Long userId, String text) {
+        notificationService.send(userId, text);
     }
 }

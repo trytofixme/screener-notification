@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Configuration;
 
 @Getter
 @Setter
-@ConfigurationProperties(prefix = "app.kafka.topic.notification")
+@ConfigurationProperties(prefix = "app.data.kafka.topic.notification")
 @Configuration
 public class KafkaNotificationTopicProperties {
 

@@ -76,11 +76,7 @@ public class TelegramClient {
     }
 
     private boolean is5xxOrIo(Retry.RetrySignal signal) {
-        Throwable f = signal.failure();
-        return f instanceof TransientTelegramException
-                || f instanceof WebClientRequestException
-                || f instanceof io.netty.handler.timeout.ReadTimeoutException
-                || f instanceof java.io.IOException;
+        return signal.failure() instanceof TransientTelegramException;
     }
 
     private static Duration jitterBackoff(long attempt, long baseMs, long maxMs) {

@@ -26,14 +26,17 @@ public class TelegramService implements NotificationService {
     private static final int PER_CHAT_MIN_INTERVAL_MS = 1000;
 
     private final TelegramClient telegramClient;
-    private final TelegramProperties telegramProperties;
 
     private final ConcurrentHashMap<Long, AtomicLong> chatLastSend = new ConcurrentHashMap<>();
 
     @Override
-    public Mono<Void> sendAsync(Long chatId, String text) {
+    public void send(Long userId, String message) {
+        TelegramSendRequestDto dto = TelegramRequestBuilder.buildPlain(userId, message);
+        send(dto).block();
+    }
+
+    public Mono<Void> send(TelegramSendRequestDto dto) {
         long now = System.currentTimeMillis();
-        TelegramSendRequestDto dto = TelegramRequestBuilder.buildPlain(chatId, text);
         AtomicLong last = chatLastSend.computeIfAbsent(dto.chat_id(), k -> new AtomicLong(0));
         long elapsed = now - last.get();
         long sleepMs = elapsed >= PER_CHAT_MIN_INTERVAL_MS ? 0 : PER_CHAT_MIN_INTERVAL_MS - elapsed;
@@ -46,7 +49,6 @@ public class TelegramService implements NotificationService {
 
     private Mono<Void> sendOnce(TelegramSendRequestDto dto) {
         return telegramClient.doPost(dto)
-                .timeout(Duration.ofDays(telegramProperties.getReadTimeoutMs()))
                 .flatMap(resp -> {
                     if (resp.statusCode().is2xxSuccessful()) return Mono.empty();
 
