@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
 import ru.screener.notification.config.kafka.KafkaNotificationTopicProperties;
 import ru.screener.notification.dto.rsi.RsiNotificationDto;
 import ru.screener.notification.listener.AbstractKafkaListener;
@@ -33,15 +34,24 @@ public class BybitKafkaListener extends AbstractKafkaListener<RsiNotificationDto
             containerFactory = "kafkaListenerContainerFactory"
     )
     public void listenBybitTopic(String message, Acknowledgment ack) {
-        RsiNotificationDto bybitEvent = getEvent(message);
-        log.info("Received a message from {}: {}", topicProperties.getName(), bybitEvent);
+        RsiNotificationDto event = getEvent(message);
+        log.info("Received a message from {}: {}", topicProperties.getName(), event);
 
-        String messageText = getMessage(bybitEvent);
+        String text = getMessage(event);
 
-        sendNotification(bybitEvent.getTelegramId(), messageText)
-                .timeout(Duration.ofSeconds(15))
-                .doOnError(e -> log.warn("Send failed", e))
-                .doOnSuccess(v -> ack.acknowledge())
-                .subscribe();
+        sendNotification(event.getTelegramId(), text)
+                .timeout(Duration.ofSeconds(15)) // крайний дедлайн для всей операции
+                .doOnSuccess(v -> {
+                    ack.acknowledge();
+                    log.debug("Sent to {} OK", event.getTelegramId());
+                })
+                .onErrorResume(ex -> {
+                    // тут можно отправить в DLT/лог и всё равно ACK, чтобы не зациклиться
+                    log.warn("Send failed, will send to DLT: {}", ex.toString(), ex);
+                    ack.acknowledge();
+                    return Mono.empty();
+                })
+                .subscribe(); // ошибок «наружу» больше нет — onErrorDropped не появится
     }
+
 }

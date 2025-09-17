@@ -1,7 +1,9 @@
 package ru.screener.notification.config.telegram;
 
 import io.netty.channel.ChannelOption;
+import io.netty.handler.logging.LogLevel;
 import io.netty.handler.timeout.ReadTimeoutHandler;
+import io.netty.resolver.DefaultAddressResolverGroup;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
@@ -9,6 +11,7 @@ import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
 import reactor.netty.resources.ConnectionProvider;
+import reactor.netty.transport.logging.AdvancedByteBufFormat;
 
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
@@ -18,16 +21,27 @@ public class TelegramClientConfig {
 
     @Bean
     WebClient telegramWebClient(TelegramProperties props) {
-        HttpClient httpClient = HttpClient.create()
+        // пул соединений с коротким таймаутом на выдачу коннекта
+        ConnectionProvider provider = ConnectionProvider.builder("tg-pool")
+                .maxConnections(100)                       // хватит с запасом
+                .pendingAcquireTimeout(Duration.ofSeconds(3)) // не висим в пуле дольше 3с
+                .pendingAcquireMaxCount(1000)
+                .maxIdleTime(Duration.ofSeconds(30))
+                .build();
+
+        HttpClient httpClient = HttpClient.create(provider)
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, props.getConnectTimeoutMs())
                 .responseTimeout(Duration.ofMillis(props.getReadTimeoutMs()))
-                .doOnConnected(conn -> conn.addHandlerLast(new ReadTimeoutHandler(props.getReadTimeoutMs(), TimeUnit.MILLISECONDS)));
+                .doOnConnected(conn ->
+                        conn.addHandlerLast(new ReadTimeoutHandler(props.getReadTimeoutMs(), TimeUnit.MILLISECONDS)))
+                .resolver(DefaultAddressResolverGroup.INSTANCE) // предпочтит. IPv4 при наличии sysprop
+                .wiretap("tg", LogLevel.INFO, AdvancedByteBufFormat.TEXTUAL); // удобно дебажить
 
         return WebClient.builder()
                 .baseUrl(props.getApiBaseUrl() + "/bot" + props.getBotToken())
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .exchangeStrategies(ExchangeStrategies.builder()
-                        .codecs(c -> c.defaultCodecs().maxInMemorySize(1024 * 1024))
+                        .codecs(c -> c.defaultCodecs().maxInMemorySize(1 * 1024 * 1024))
                         .build())
                 .build();
     }

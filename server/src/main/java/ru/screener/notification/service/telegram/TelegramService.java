@@ -27,24 +27,23 @@ public class TelegramService implements NotificationService {
     private static final int PER_CHAT_MIN_INTERVAL_MS = 1000;
 
     private final TelegramClient telegramClient;
-
     private final ConcurrentHashMap<Long, AtomicLong> chatLastSend = new ConcurrentHashMap<>();
 
     @Override
     public Mono<Void> send(Long userId, String message) {
         TelegramSendRequestDto dto = TelegramRequestBuilder.buildPlain(userId, message);
+
         long now = System.currentTimeMillis();
         AtomicLong last = chatLastSend.computeIfAbsent(dto.chat_id(), k -> new AtomicLong(0));
         long elapsed = now - last.get();
         long sleepMs = elapsed >= PER_CHAT_MIN_INTERVAL_MS ? 0 : PER_CHAT_MIN_INTERVAL_MS - elapsed;
 
         return Mono.delay(Duration.ofMillis(sleepMs))
-                .then(sendOnce(dto))
+                .then(telegramClient.doPost(dto)
+                        .retryWhen(telegramClient.telegramRetry())
+                        .timeout(Duration.ofSeconds(10)) // «страховочный» верхний предел меньше 15с слушателя
+                )
                 .doOnSuccess(v -> last.set(System.currentTimeMillis()));
     }
-
-    private Mono<Void> sendOnce(TelegramSendRequestDto dto) {
-        return telegramClient.doPost(dto)
-                .retryWhen(telegramClient.telegramRetry());
-    }
 }
+
