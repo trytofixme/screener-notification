@@ -13,6 +13,8 @@ import ru.screener.notification.dto.telegram.TelegramSendRequestDto;
 import ru.screener.notification.errors.telegram.RetryAfterException;
 import ru.screener.notification.errors.telegram.TransientTelegramException;
 
+import java.time.Duration;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -36,6 +38,7 @@ public class TelegramClient {
                         response -> Mono.error(new TransientTelegramException("5xx from Telegram")))
                 .toBodilessEntity()
                 .then()
+                .timeout(Duration.ofSeconds(10))
                 .onErrorResume(WebClientRequestException.class,
                         e -> Mono.error(new TransientTelegramException("I/O exception", e)));
     }

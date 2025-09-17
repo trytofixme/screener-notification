@@ -8,6 +8,7 @@ import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
+import reactor.netty.resources.ConnectionProvider;
 
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
@@ -17,7 +18,12 @@ public class TelegramClientConfig {
 
     @Bean
     WebClient telegramWebClient(TelegramProperties telegramProperties) {
-        HttpClient httpClient = HttpClient.create()
+        ConnectionProvider provider = ConnectionProvider.builder("telegram-provider")
+                .maxConnections(50)
+                .maxIdleTime(Duration.ofSeconds(58))
+                .build();
+
+        HttpClient httpClient = HttpClient.create(provider)
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, telegramProperties.getTimeouts().getConnectMs())
                 .responseTimeout(Duration.ofMillis(telegramProperties.getTimeouts().getReadMs()))
                 .doOnConnected(connection -> connection.addHandlerLast(
