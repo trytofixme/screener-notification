@@ -9,8 +9,7 @@ spring:
     properties:
       client.dns.lookup: use_all_dns_ips
     listener:
-      concurrency: 3
-      ack-mode: manual_immediate
+      ack-mode: manual
 
 app:
   kafka:

@@ -20,8 +20,10 @@ public class GlobalRateLimiter implements DisposableBean {
     private final Disposable refillTask;
 
     public GlobalRateLimiter(TelegramProperties props) {
-        this.permitsPerSecond = props.getRatelimit().getMaxGlobalRps();
-        this.bucket = new Semaphore(permitsPerSecond);
+        int cfg = props.getRatelimit().getMaxGlobalRps();
+        this.permitsPerSecond = Math.max(1, cfg);
+        this.bucket = new Semaphore(permitsPerSecond, true); // fair semaphore
+
         this.refillTask = Flux.interval(Duration.ZERO, Duration.ofSeconds(1), scheduler)
                 .subscribe(t -> {
                     int deficit = permitsPerSecond - bucket.availablePermits();
@@ -32,7 +34,7 @@ public class GlobalRateLimiter implements DisposableBean {
     public Mono<Void> acquire() {
         return Mono.defer(() -> {
             if (bucket.tryAcquire()) return Mono.empty();
-            long stepMs = Math.max(25, 1000L / Math.max(1, permitsPerSecond));
+            long stepMs = Math.max(25, 1000L / permitsPerSecond);
             return Mono.delay(Duration.ofMillis(stepMs), scheduler).then(acquire());
         });
     }
