@@ -35,17 +35,17 @@ public class GlobalRateLimiter implements DisposableBean {
                     int deficit = permitsPerSecond - bucket.availablePermits();
                     if (deficit > 0) bucket.release(deficit);
 
-                    while (bucket.tryAcquire()) {
+                    while (!waiters.isEmpty() && bucket.tryAcquire()) {
                         Sinks.One<Void> sink = waiters.poll();
                         if (sink == null) {
                             bucket.release();
                             break;
                         }
-                        Sinks.EmitResult r = sink.tryEmitEmpty();
-                        if (r.isFailure()) {
+                        if (sink.tryEmitEmpty().isFailure()) {
                             bucket.release();
                         }
                     }
+
                 });
     }
 
