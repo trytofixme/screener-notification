@@ -2,8 +2,8 @@ spring:
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
     consumer:
-      max-poll-records: 1
-      max-poll-interval-ms: 900000
+      max-poll-records: 50
+      max-poll-interval-ms: 600000
       heartbeat-interval: 3000
       session-timeout-ms: 45000
       group-id: notification-service
