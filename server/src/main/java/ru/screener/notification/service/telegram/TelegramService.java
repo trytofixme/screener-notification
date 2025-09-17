@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
+import ru.screener.notification.dto.telegram.TelegramSendRequestDto;
 import ru.screener.notification.integrations.telegram.TelegramClient;
 import ru.screener.notification.service.NotificationService;
 import ru.screener.notification.utils.request.TelegramRequestBuilder;
@@ -24,8 +25,7 @@ public class TelegramService implements NotificationService {
 
     @Override
     public Mono<Void> send(Long userId, String message) {
-        var dto = TelegramRequestBuilder.buildPlain(userId, message);
-
+        TelegramSendRequestDto dto = TelegramRequestBuilder.buildPlain(userId, message);
         Duration delay = perChatDelay(dto.chat_id());
 
         return Mono

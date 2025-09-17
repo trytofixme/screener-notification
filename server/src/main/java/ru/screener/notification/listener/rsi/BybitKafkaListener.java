@@ -8,12 +8,9 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 import ru.screener.notification.config.kafka.KafkaNotificationTopicProperties;
 import ru.screener.notification.dto.rsi.RsiNotificationDto;
-import ru.screener.notification.errors.telegram.RetryAfterException;
 import ru.screener.notification.listener.AbstractKafkaListener;
 import ru.screener.notification.messaging.MessageBuilder;
 import ru.screener.notification.service.NotificationService;
-
-import java.time.Duration;
 
 @Component
 @Slf4j
@@ -29,11 +26,7 @@ public class BybitKafkaListener extends AbstractKafkaListener<RsiNotificationDto
         this.topicProperties = topicProperties;
     }
 
-    @KafkaListener(
-            topics = "${app.kafka.topic.notification.name}",
-            groupId = "notification-service",
-            containerFactory = "kafkaListenerContainerFactory"
-    )
+    @KafkaListener(topics = "${app.kafka.topic.notification.name}", containerFactory = "kafkaListenerContainerFactory")
     public void listenBybitTopic(String message, Acknowledgment ack) {
         RsiNotificationDto event = getEvent(message);
         log.info("Received a message from {}: {}", topicProperties.getName(), event);

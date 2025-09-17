@@ -21,10 +21,10 @@ public class TelegramClientConfig {
 
     @Bean
     WebClient telegramWebClient(TelegramProperties props) {
-        // пул соединений с коротким таймаутом на выдачу коннекта
+
         ConnectionProvider provider = ConnectionProvider.builder("tg-pool")
-                .maxConnections(100)                       // хватит с запасом
-                .pendingAcquireTimeout(Duration.ofSeconds(3)) // не висим в пуле дольше 3с
+                .maxConnections(100)
+                .pendingAcquireTimeout(Duration.ofSeconds(3))
                 .pendingAcquireMaxCount(1000)
                 .maxIdleTime(Duration.ofSeconds(30))
                 .build();
@@ -34,14 +34,14 @@ public class TelegramClientConfig {
                 .responseTimeout(Duration.ofMillis(props.getReadTimeoutMs()))
                 .doOnConnected(conn ->
                         conn.addHandlerLast(new ReadTimeoutHandler(props.getReadTimeoutMs(), TimeUnit.MILLISECONDS)))
-                .resolver(DefaultAddressResolverGroup.INSTANCE) // предпочтит. IPv4 при наличии sysprop
-                .wiretap("tg", LogLevel.INFO, AdvancedByteBufFormat.TEXTUAL); // удобно дебажить
+                .resolver(DefaultAddressResolverGroup.INSTANCE)
+                .wiretap("tg", LogLevel.INFO, AdvancedByteBufFormat.TEXTUAL);
 
         return WebClient.builder()
                 .baseUrl(props.getApiBaseUrl() + "/bot" + props.getBotToken())
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .exchangeStrategies(ExchangeStrategies.builder()
-                        .codecs(c -> c.defaultCodecs().maxInMemorySize(1 * 1024 * 1024))
+                        .codecs(c -> c.defaultCodecs().maxInMemorySize(1024 * 1024))
                         .build())
                 .build();
     }
