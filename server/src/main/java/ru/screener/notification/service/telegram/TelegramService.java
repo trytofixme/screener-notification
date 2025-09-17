@@ -4,6 +4,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 import ru.screener.notification.config.telegram.TelegramProperties;
 import ru.screener.notification.dto.telegram.TelegramSendRequestDto;
 import ru.screener.notification.errors.telegram.PermanentTelegramException;
@@ -24,26 +26,33 @@ import java.util.concurrent.atomic.AtomicLong;
 @RequiredArgsConstructor
 public class TelegramService implements NotificationService {
 
-    private static final int PER_CHAT_MIN_INTERVAL_MS = 1000;
+    private static final int PER_CHAT_INTERVAL_MS = 1000;
 
-    private final TelegramClient telegramClient;
-    private final ConcurrentHashMap<Long, AtomicLong> chatLastSend = new ConcurrentHashMap<>();
+    private final TelegramClient client;
+
+    private final ConcurrentHashMap<Long, AtomicLong> lastSend = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Long, Scheduler> chatSchedulers = new ConcurrentHashMap<>();
+
+    private Scheduler schedulerFor(long chatId) {
+        return chatSchedulers.computeIfAbsent(chatId, id -> Schedulers.newSingle("tg-chat-" + id));
+    }
 
     @Override
     public Mono<Void> send(Long userId, String message) {
         TelegramSendRequestDto dto = TelegramRequestBuilder.buildPlain(userId, message);
 
-        long now = System.currentTimeMillis();
-        AtomicLong last = chatLastSend.computeIfAbsent(dto.chat_id(), k -> new AtomicLong(0));
-        long elapsed = now - last.get();
-        long sleepMs = elapsed >= PER_CHAT_MIN_INTERVAL_MS ? 0 : PER_CHAT_MIN_INTERVAL_MS - elapsed;
-
-        return Mono.delay(Duration.ofMillis(sleepMs))
-                .then(telegramClient.doPost(dto)
-                        .retryWhen(telegramClient.telegramRetry())
-                        .timeout(Duration.ofSeconds(10)) // «страховочный» верхний предел меньше 15с слушателя
+        return Mono.defer(() -> {
+                    long now = System.currentTimeMillis();
+                    AtomicLong last = lastSend.computeIfAbsent(dto.chat_id(), k -> new AtomicLong(0));
+                    long elapsed = now - last.get();
+                    long delay = elapsed >= PER_CHAT_INTERVAL_MS ? 0 : PER_CHAT_INTERVAL_MS - elapsed;
+                    return Mono.delay(Duration.ofMillis(delay));
+                })
+                .publishOn(schedulerFor(dto.chat_id()))  // критично: последовательность по чату
+                .then(client.send(dto)
+                        .retryWhen(client.telegramRetry())
                 )
-                .doOnSuccess(v -> last.set(System.currentTimeMillis()));
+                .doOnSuccess(v -> lastSend.get(dto.chat_id()).set(System.currentTimeMillis()));
     }
 }
 

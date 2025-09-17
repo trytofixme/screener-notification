@@ -8,6 +8,7 @@ import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
+import ru.screener.notification.config.telegram.GlobalRateLimiter;
 import ru.screener.notification.dto.telegram.TelegramSendRequestDto;
 import ru.screener.notification.errors.telegram.PermanentTelegramException;
 import ru.screener.notification.errors.telegram.RetryAfterException;
@@ -23,42 +24,69 @@ import java.util.List;
 public class TelegramClient {
 
     private static final String SEND_MESSAGE_METHOD = "/sendMessage";
-
     private final WebClient webClient;
+    private final GlobalRateLimiter globalLimiter;
 
-    public Mono<Void> doPost(TelegramSendRequestDto dto) {
-        return webClient.post()
-                .uri(SEND_MESSAGE_METHOD)
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(dto)
-                .exchangeToMono(resp -> {
-                    if (resp.statusCode().is2xxSuccessful()) {
-                        return resp.releaseBody(); // быстро сливаем и завершаем
-                    }
-                    if (resp.statusCode().value() == 429) {
-                        // читаем body ради корректного освобождения коннекта
-                        return resp.bodyToMono(String.class)
-                                .defaultIfEmpty("")
-                                .then(Mono.defer(() -> {
-                                    List<String> ra = resp.headers().asHttpHeaders().get("Retry-After");
-                                    if (ra != null && !ra.isEmpty()) {
-                                        try {
-                                            return Mono.error(new RetryAfterException(Integer.parseInt(ra.get(0))));
-                                        } catch (NumberFormatException ignore) { /* fall through */ }
-                                    }
-                                    return Mono.error(new TooManyRequestsException());
-                                }));
-                    }
-                    if (resp.statusCode().is5xxServerError()) {
-                        return resp.releaseBody().then(Mono.error(new TransientTelegramException("5xx from Telegram")));
-                    }
-                    return resp.bodyToMono(String.class)
-                            .defaultIfEmpty("")
-                            .flatMap(body -> Mono.error(new PermanentTelegramException(
-                                    "Telegram returned %s: %s".formatted(resp.statusCode(), body))));
-                })
-                // любые сетевые/таймаут/закрытие сокета помечаем транзиентными
+    public Mono<Void> send(TelegramSendRequestDto dto) {
+        return globalLimiter.acquire()
+                .then(webClient.post()
+                        .uri(SEND_MESSAGE_METHOD)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(dto)
+                        .exchangeToMono(resp -> {
+                            if (resp.statusCode().is2xxSuccessful()) return resp.releaseBody();
+
+                            if (resp.statusCode().value() == 429) {
+                                return resp.bodyToMono(String.class).defaultIfEmpty("")
+                                        .then(Mono.defer(() -> {
+                                            List<String> ra = resp.headers().asHttpHeaders().get("Retry-After");
+                                            if (ra != null && !ra.isEmpty()) {
+                                                try { return Mono.error(new RetryAfterException(Integer.parseInt(ra.get(0)))); }
+                                                catch (NumberFormatException ignore) { /* falls through */ }
+                                            }
+                                            return Mono.error(new TooManyRequestsException());
+                                        }));
+                            }
+
+                            if (resp.statusCode().is5xxServerError()) {
+                                return resp.releaseBody().then(Mono.error(new TransientTelegramException("5xx from Telegram")));
+                            }
+                            return resp.bodyToMono(String.class).defaultIfEmpty("")
+                                    .flatMap(body -> Mono.error(new PermanentTelegramException(
+                                            "Telegram returned %s: %s".formatted(resp.statusCode(), body))));
+                        })
+                )
                 .onErrorMap(this::mapIoLikeToTransient);
+    }
+
+    public Retry telegramRetry() {
+        final long SMALL_RETRY_CUTOFF_SEC = 5;  // всё, что >5с — уходит в DLT на отложку
+        return Retry.from(companion -> companion.handle((signal, sink) -> {
+            Throwable e = signal.failure();
+            if (e == null) { sink.next(Duration.ZERO); return; }
+
+            if (e instanceof RetryAfterException rae) {
+                if (rae.seconds() <= SMALL_RETRY_CUTOFF_SEC) {
+                    sink.next(Duration.ofSeconds(rae.seconds()));
+                } else {
+                    sink.error(e); // пусть выше решают про DLT
+                }
+                return;
+            }
+            if (e instanceof TooManyRequestsException) {
+                long n = signal.totalRetries();
+                if (n >= 3) { sink.error(e); return; }
+                sink.next(jitterBackoff(n, 500, 4000));
+                return;
+            }
+            if (e instanceof TransientTelegramException) {
+                long n = signal.totalRetries();
+                if (n >= 5) { sink.error(e); return; }
+                sink.next(jitterBackoff(n, 300, 5000));
+                return;
+            }
+            sink.error(e);
+        }));
     }
 
     private Throwable mapIoLikeToTransient(Throwable e) {
@@ -69,32 +97,6 @@ public class TelegramClient {
         if (e instanceof io.netty.channel.ConnectTimeoutException) return new TransientTelegramException("Connect timeout");
         if (e instanceof io.netty.handler.timeout.ReadTimeoutException) return new TransientTelegramException("Read timeout");
         return e;
-    }
-
-    public Retry telegramRetry() {
-        return Retry.from(companion -> companion.handle((signal, sink) -> {
-            final Throwable e = signal.failure();
-            if (e == null) { sink.next(Duration.ZERO); return; }
-
-            if (e instanceof RetryAfterException rae) {
-                sink.next(Duration.ofSeconds(rae.seconds()));
-                return;
-            }
-            if (e instanceof TooManyRequestsException) {
-                long n = signal.totalRetries();
-                if (n >= 3) { sink.error(e); return; }
-                sink.next(jitterBackoff(n, 500, 4000));
-                return;
-            }
-            // транзиентные: 5xx и все I/O/timeout (мы их промапили)
-            if (e instanceof TransientTelegramException) {
-                long n = signal.totalRetries();
-                if (n >= 5) { sink.error(e); return; }
-                sink.next(jitterBackoff(n, 300, 5000));
-                return;
-            }
-            sink.error(e);
-        }));
     }
 
     private static Duration jitterBackoff(long attempt, long baseMs, long maxMs) {

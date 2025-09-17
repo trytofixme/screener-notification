@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 import ru.screener.notification.config.kafka.KafkaNotificationTopicProperties;
 import ru.screener.notification.dto.rsi.RsiNotificationDto;
+import ru.screener.notification.errors.telegram.RetryAfterException;
 import ru.screener.notification.listener.AbstractKafkaListener;
 import ru.screener.notification.messaging.MessageBuilder;
 import ru.screener.notification.service.NotificationService;
@@ -46,12 +47,9 @@ public class BybitKafkaListener extends AbstractKafkaListener<RsiNotificationDto
                     log.debug("Sent to {} OK", event.getTelegramId());
                 })
                 .onErrorResume(ex -> {
-                    // тут можно отправить в DLT/лог и всё равно ACK, чтобы не зациклиться
-                    log.warn("Send failed, will send to DLT: {}", ex.toString(), ex);
                     ack.acknowledge();
                     return Mono.empty();
                 })
                 .subscribe(); // ошибок «наружу» больше нет — onErrorDropped не появится
     }
-
 }
