@@ -40,30 +40,11 @@ public class TelegramService implements NotificationService {
 
         return Mono.delay(Duration.ofMillis(sleepMs))
                 .then(sendOnce(dto))
-                .doOnSuccess(v -> last.set(System.currentTimeMillis()))
-                .then();
+                .doOnSuccess(v -> last.set(System.currentTimeMillis()));
     }
 
     private Mono<Void> sendOnce(TelegramSendRequestDto dto) {
         return telegramClient.doPost(dto)
-                .timeout(Duration.ofSeconds(20))
-                .flatMap(resp -> {
-                    if (resp.statusCode().is2xxSuccessful()) return Mono.empty();
-
-                    if (resp.statusCode().value() == 429) {
-                        return resp.headers().asHttpHeaders().containsKey("Retry-After")
-                                ? Mono.error(new RetryAfterException(resp))
-                                : Mono.error(new TooManyRequestsException());
-                    }
-                    if (resp.statusCode().is5xxServerError()) {
-                        return Mono.error(new TransientTelegramException("5xx from Telegram"));
-                    }
-                    return resp.bodyToMono(String.class)
-                            .defaultIfEmpty("")
-                            .flatMap(body -> Mono.error(new PermanentTelegramException(
-                                    "Telegram returned %s: %s".formatted(resp.statusCode(), body))));
-                })
-                .onErrorMap(TimeoutException.class, t -> new TransientTelegramException("HTTP Timeout"))
-                .retryWhen(telegramClient.telegramRetry()).then();
+                .retryWhen(telegramClient.telegramRetry());
     }
 }

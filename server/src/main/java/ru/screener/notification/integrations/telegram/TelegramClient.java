@@ -9,6 +9,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 import ru.screener.notification.dto.telegram.TelegramSendRequestDto;
+import ru.screener.notification.errors.telegram.PermanentTelegramException;
 import ru.screener.notification.errors.telegram.RetryAfterException;
 import ru.screener.notification.errors.telegram.TooManyRequestsException;
 import ru.screener.notification.errors.telegram.TransientTelegramException;
@@ -24,12 +25,30 @@ public class TelegramClient {
 
     private final WebClient webClient;
 
-    public Mono<ClientResponse> doPost(TelegramSendRequestDto dto) {
+    public Mono<Void> doPost(TelegramSendRequestDto dto) {
         return webClient.post()
                 .uri(SEND_MESSAGE_METHOD)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(dto)
-                .exchangeToMono(Mono::just);
+                .exchangeToMono(resp -> {
+                    // 2xx -> просто сливаем тело и завершаем
+                    if (resp.statusCode().is2xxSuccessful()) {
+                        return resp.releaseBody(); // Mono<Void> completes after drain
+                    }
+                    // 429/5xx/прочее -> читаем тело, чтобы освободить соединение, и мапим в ошибку
+                    if (resp.statusCode().value() == 429) {
+                        return resp.headers().asHttpHeaders().containsKey("Retry-After")
+                                ? resp.releaseBody().then(Mono.error(new RetryAfterException(resp)))
+                                : resp.releaseBody().then(Mono.error(new TooManyRequestsException()));
+                    }
+                    if (resp.statusCode().is5xxServerError()) {
+                        return resp.releaseBody().then(Mono.error(new TransientTelegramException("5xx from Telegram")));
+                    }
+                    return resp.bodyToMono(String.class)
+                            .defaultIfEmpty("")
+                            .flatMap(body -> Mono.error(new PermanentTelegramException(
+                                    "Telegram returned %s: %s".formatted(resp.statusCode(), body))));
+                });
     }
 
     public Retry telegramRetry() {

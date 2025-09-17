@@ -2,19 +2,11 @@ package ru.screener.notification.listener.rsi;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
-import org.springframework.kafka.listener.MessageListenerContainer;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
-import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 import ru.screener.notification.config.kafka.KafkaNotificationTopicProperties;
 import ru.screener.notification.dto.rsi.RsiNotificationDto;
-import ru.screener.notification.errors.kafka.InvalidKafkaMessageException;
-import ru.screener.notification.errors.telegram.TooManyRequestsException;
-import ru.screener.notification.errors.telegram.TransientTelegramException;
 import ru.screener.notification.listener.AbstractKafkaListener;
 import ru.screener.notification.messaging.MessageBuilder;
 import ru.screener.notification.service.NotificationService;
@@ -48,19 +40,8 @@ public class BybitKafkaListener extends AbstractKafkaListener<RsiNotificationDto
 
         sendNotification(bybitEvent.getTelegramId(), messageText)
                 .timeout(Duration.ofSeconds(15))
-                .subscribeOn(Schedulers.boundedElastic())
+                .doOnError(e -> log.warn("Send failed", e))
                 .doOnSuccess(v -> ack.acknowledge())
-                .doOnError(ex -> {
-                    if (ex instanceof TooManyRequestsException || ex instanceof TransientTelegramException) {
-                        ack.nack(Duration.ofSeconds(10));
-                    } else {
-                        log.error("Permanent error, send to DLT", ex);
-                        ack.acknowledge();
-                    }
-                })
-                .subscribe(
-                        null,
-                        ex -> log.warn("Send failed, cause {}", ex.getMessage())
-                );
+                .subscribe();
     }
 }
