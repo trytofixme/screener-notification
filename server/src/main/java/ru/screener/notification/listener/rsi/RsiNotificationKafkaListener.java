@@ -38,16 +38,15 @@ public class RsiNotificationKafkaListener extends AbstractKafkaListener<RsiNotif
         }
 
         final String message = getMessage(rsiNotificationDto);
-        sendNotification(rsiNotificationDto.getTelegramId(), message)
-                .doOnSuccess(v -> {
-                    log.info("Sent to TG: {}", rsiNotificationDto.getTelegramId());
-                    ack.acknowledge();
-                })
-                .onErrorResume(e -> {
-                    log.warn("TG send failed after retries for {}: {}", rsiNotificationDto.getTelegramId(), e.toString());
-                    ack.acknowledge();
-                    return Mono.empty();
-                })
-                .subscribe();
+        try {
+            sendNotification(rsiNotificationDto.getTelegramId(), message)
+                    .doOnSuccess(v -> log.info("Sent to TG: {}", rsiNotificationDto.getTelegramId()))
+                    .doOnError(e -> log.warn("TG send failed after retries for {}: {}", rsiNotificationDto.getTelegramId(), e.toString()))
+                    .block();
+        } catch (Exception e) {
+            log.error("Error processing message for {}: {}", rsiNotificationDto.getTelegramId(), e.getMessage());
+        } finally {
+            ack.acknowledge();
+        }
     }
 }
