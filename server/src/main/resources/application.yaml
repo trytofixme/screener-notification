@@ -7,6 +7,7 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
     properties:
+      max.poll.interval.ms: 300000
       client.dns.lookup: use_all_dns_ips
     listener:
       ack-mode: manual
