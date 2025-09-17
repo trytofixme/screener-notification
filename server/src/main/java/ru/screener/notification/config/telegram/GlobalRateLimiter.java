@@ -10,6 +10,7 @@ import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
 import java.time.Duration;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Semaphore;
 
@@ -39,11 +40,21 @@ public class GlobalRateLimiter implements DisposableBean {
     public Mono<Void> acquire() {
         return Mono.create(sink -> {
             if (bucket.tryAcquire()) { sink.success(); return; }
+
             Sinks.One<Void> waiter = Sinks.one();
             waiters.offer(waiter);
-            waiter.asMono().subscribe(v -> sink.success(), sink::error);
+
+            // если подписчик отвалился — убираем waiter (best-effort)
+            sink.onCancel(() -> waiter.tryEmitError(new CancellationException()));
+            sink.onDispose(() -> waiter.tryEmitError(new CancellationException()));
+
+            waiter.asMono().subscribe(
+                    v -> sink.success(),
+                    e -> { /* игнор */ }
+            );
         });
     }
+
 
     @Override public void destroy() { refillTask.dispose(); scheduler.dispose(); }
 }
