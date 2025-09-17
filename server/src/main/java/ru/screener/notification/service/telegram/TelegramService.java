@@ -1,4 +1,4 @@
-package ru.screener.notification.service;
+package ru.screener.notification.service.telegram;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -9,6 +9,7 @@ import ru.screener.notification.config.telegram.TelegramProperties;
 import ru.screener.notification.config.telegram.TelegramRetryPolicy;
 import ru.screener.notification.integrations.telegram.TelegramClient;
 import ru.screener.notification.dto.telegram.TelegramSendRequestDto;
+import ru.screener.notification.service.NotificationService;
 import ru.screener.notification.utils.request.TelegramRequestBuilder;
 
 import java.time.Duration;
