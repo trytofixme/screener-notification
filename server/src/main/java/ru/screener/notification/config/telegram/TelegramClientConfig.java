@@ -18,9 +18,22 @@ public class TelegramClientConfig {
 
     @Bean
     WebClient telegramWebClient(TelegramProperties telegramProperties) {
+        // Устанавливаем таймаут на ПОЛУЧЕНИЕ соединения из пула.
+        // Если за 10 секунд соединение не выделилось, запрос упадет сразу,
+        // не забивая очередь ожидания.
+        Duration pendingAcquireTimeout = Duration.ofSeconds(10);
+
         ConnectionProvider provider = ConnectionProvider.builder("telegram-provider")
                 .maxConnections(50)
+                // Устанавливаем максимальное количество ожидающих запросов.
+                // Можно оставить значение по умолчанию или увеличить, если нужно.
+                .pendingAcquireTimeout(pendingAcquireTimeout) // <-- ВАЖНО!
+                // Принудительно закрывать соединения, которые "прожили" больше 5 минут
+                .maxLifeTime(Duration.ofMinutes(5))
+                // Принудительно закрывать соединения, которые были без дела больше 58 секунд
                 .maxIdleTime(Duration.ofSeconds(58))
+                // Периодически проверять и удалять "мертвые" соединения в фоне
+                .evictInBackground(Duration.ofSeconds(120))
                 .build();
 
         HttpClient httpClient = HttpClient.create(provider)
