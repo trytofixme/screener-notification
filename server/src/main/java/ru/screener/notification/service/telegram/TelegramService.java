@@ -21,17 +21,14 @@ public class TelegramService implements NotificationService {
 
     private final TelegramClient telegramClient;
     private final TelegramRetryPolicy retryPolicy;
-    private final GlobalRateLimiter globalLimiter;
-    private final PerChatLimiter perChatLimiter;
+    // private final GlobalRateLimiter globalLimiter;
+    // private final PerChatLimiter perChatLimiter;
 
     @Override
     public Mono<Void> sendAsync(Long chatId, String text) {
         TelegramSendRequestDto dto = TelegramRequestBuilder.buildPlain(chatId, text);
 
-        return perChatLimiter.acquire(chatId)
-                .then(globalLimiter.acquire())
-                .then(telegramClient.sendMessage(dto)
-                .retryWhen(retryPolicy.retry())
-        );
+        return telegramClient.sendMessage(dto)
+                .retryWhen(retryPolicy.retry());
     }
 }
