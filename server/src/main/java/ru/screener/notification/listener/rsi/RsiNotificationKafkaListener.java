@@ -15,6 +15,8 @@ import ru.screener.notification.listener.AbstractKafkaListener;
 import ru.screener.notification.messaging.MessageBuilder;
 import ru.screener.notification.service.NotificationService;
 
+import java.time.Duration;
+
 @Component
 @Slf4j
 public class RsiNotificationKafkaListener extends AbstractKafkaListener<RsiNotificationDto> {
@@ -31,47 +33,14 @@ public class RsiNotificationKafkaListener extends AbstractKafkaListener<RsiNotif
 
     @KafkaListener(id = "rsiListenerContainer", topics = "${app.kafka.topic.notification.name}", containerFactory = "kafkaListenerContainerFactory")
     public void listenBybitTopic(ConsumerRecord<String, String> record, Acknowledgment ack) {
-        log.info("Get message {}", record.value());
-        MessageListenerContainer container = registry.getListenerContainer("rsiListenerContainer");
-        if (container == null) {
-            log.error("Cannot find listener container with id 'rsiListenerContainer'");
-            ack.acknowledge();
-            return;
-        }
-        container.pause();
-
-        final RsiNotificationDto rsiNotificationDto;
         try {
-            rsiNotificationDto = getEvent(record.value());
-            log.info("Received a message from {}: {}", record.topic(), rsiNotificationDto);
-        } catch (InvalidKafkaMessageException ex) {
-            // Это фатальная ошибка парсинга, сообщение "сломано".
-            // Мы должны его пропустить, подтвердить и продолжить работу.
-            log.error("Invalid message, skip: {}", ex.getMessage());
+            RsiNotificationDto dto = getEvent(record.value());
+            sendNotification(dto.getTelegramId(),getMessage(dto))
+                    .block(); // да, синхронный мост, но на ОДНО сообщение
             ack.acknowledge();
-            container.resume();
-            return;
+        } catch (Exception e) {
+            // решите политику: nack/skip/DLT
+            ack.nack(Duration.ofSeconds(5));
         }
-
-        final String message = getMessage(rsiNotificationDto);
-
-        sendNotification(rsiNotificationDto.getTelegramId(), message)
-                .doOnSuccess(v -> {
-                    // --- СЦЕНАРИЙ УСПЕХА ---
-                    log.info("Sent to TG: {}", rsiNotificationDto.getTelegramId());
-                    ack.acknowledge();
-                    container.resume();
-                })
-                .doOnError(e -> {
-                    // --- СЦЕНАРИЙ СБОЯ ---
-                    // Мы столкнулись с временной проблемой (сеть, API недоступно).
-                    // Самое безопасное - остановить обработку этой партиции, чтобы не терять сообщения.
-                    log.error("TRANSIENT ERROR after all retries for chat {}. Stopping container. Message will NOT be acknowledged.",
-                            rsiNotificationDto.getTelegramId(), e);
-                    // НЕ вызываем ack.acknowledge()
-                    // НЕ вызываем container.resume()
-                    // Контейнер останется на паузе до ручного вмешательства или перезапуска пода.
-                })
-                .subscribe();
     }
 }

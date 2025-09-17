@@ -28,6 +28,7 @@ public class TelegramClientConfig {
                 // Устанавливаем максимальное количество ожидающих запросов.
                 // Можно оставить значение по умолчанию или увеличить, если нужно.
                 .pendingAcquireTimeout(pendingAcquireTimeout) // <-- ВАЖНО!
+                .pendingAcquireMaxCount(-1)
                 // Принудительно закрывать соединения, которые "прожили" больше 5 минут
                 .maxLifeTime(Duration.ofMinutes(5))
                 // Принудительно закрывать соединения, которые были без дела больше 58 секунд
