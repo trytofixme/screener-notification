@@ -7,12 +7,6 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
     properties:
-      max.poll.interval.ms: 300000
-      max.poll.records: 1
-      heartbeat.interval.ms: 3000
-      session.timeout.ms: 10000
-      fetch.max.wait.ms: 500
-      fetch.min.bytes: 1
       client.dns.lookup: use_all_dns_ips
     listener:
       concurrency: 3
