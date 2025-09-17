@@ -45,6 +45,8 @@ public class RsiNotificationKafkaListener extends AbstractKafkaListener<RsiNotif
             rsiNotificationDto = getEvent(record.value());
             log.info("Received a message from {}: {}", record.topic(), rsiNotificationDto);
         } catch (InvalidKafkaMessageException ex) {
+            // Это фатальная ошибка парсинга, сообщение "сломано".
+            // Мы должны его пропустить, подтвердить и продолжить работу.
             log.error("Invalid message, skip: {}", ex.getMessage());
             ack.acknowledge();
             container.resume();
@@ -52,13 +54,23 @@ public class RsiNotificationKafkaListener extends AbstractKafkaListener<RsiNotif
         }
 
         final String message = getMessage(rsiNotificationDto);
+
         sendNotification(rsiNotificationDto.getTelegramId(), message)
-                .doOnSuccess(v -> log.info("Sent to TG: {}", rsiNotificationDto.getTelegramId()))
-                .doOnError(e -> log.warn("TG send failed after retries for {}: {}", rsiNotificationDto.getTelegramId(), e.toString()))
-                .doFinally(signalType -> {
-                    log.info("Acknowledging message and resuming container. Signal: {}", signalType);
+                .doOnSuccess(v -> {
+                    // --- СЦЕНАРИЙ УСПЕХА ---
+                    log.info("Sent to TG: {}", rsiNotificationDto.getTelegramId());
                     ack.acknowledge();
                     container.resume();
+                })
+                .doOnError(e -> {
+                    // --- СЦЕНАРИЙ СБОЯ ---
+                    // Мы столкнулись с временной проблемой (сеть, API недоступно).
+                    // Самое безопасное - остановить обработку этой партиции, чтобы не терять сообщения.
+                    log.error("TRANSIENT ERROR after all retries for chat {}. Stopping container. Message will NOT be acknowledged.",
+                            rsiNotificationDto.getTelegramId(), e);
+                    // НЕ вызываем ack.acknowledge()
+                    // НЕ вызываем container.resume()
+                    // Контейнер останется на паузе до ручного вмешательства или перезапуска пода.
                 })
                 .subscribe();
     }

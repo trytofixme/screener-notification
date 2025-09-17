@@ -2,6 +2,7 @@ package ru.screener.notification.config.telegram;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -11,6 +12,7 @@ import reactor.core.scheduler.Schedulers;
 import java.time.Duration;
 import java.util.concurrent.CancellationException;
 
+@Slf4j
 @Component
 public class GlobalRateLimiter {
 
@@ -25,13 +27,21 @@ public class GlobalRateLimiter {
 
     @PostConstruct
     public void startRefillTask() {
-        Flux.interval(Duration.ofSeconds(1), Schedulers.single())
+        Flux.interval(Duration.ZERO, Duration.ofSeconds(1), Schedulers.single())
                 .takeWhile(tick -> active)
-                .subscribe(tick -> {
-                    for (int i = 0; i < permitsPerSecond; i++) {
-                        permitSink.tryEmitNext(null);
-                    }
-                });
+                .subscribe(
+                        tick -> { // onNext
+                            for (int i = 0; i < permitsPerSecond; i++) {
+                                // tryEmitNext - неблокирующий и безопасный
+                                permitSink.tryEmitNext(null);
+                            }
+                        },
+                        error -> { // onError
+                            log.error("CRITICAL: Error in GlobalRateLimiter refill task. The limiter will stop working!", error);
+                            active = false;
+                            permitSink.tryEmitError(new CancellationException("Rate limiter refill task failed"));
+                        }
+                );
     }
 
     public Mono<Void> acquire() {
