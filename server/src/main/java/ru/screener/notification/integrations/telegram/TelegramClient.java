@@ -34,7 +34,8 @@ public class TelegramClient {
                                 .flatMap(body -> Mono.error(RetryAfterException.from(response, body))))
                 .onStatus(HttpStatusCode::is5xxServerError,
                         response -> Mono.error(new TransientTelegramException("5xx from Telegram")))
-                .bodyToMono(Void.class)
+                .toBodilessEntity()
+                .then()
                 .onErrorResume(WebClientRequestException.class,
                         e -> Mono.error(new TransientTelegramException("I/O exception", e)));
     }

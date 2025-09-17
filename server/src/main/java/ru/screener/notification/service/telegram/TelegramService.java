@@ -30,8 +30,9 @@ public class TelegramService implements NotificationService {
 
         return perChatLimiter.acquire(chatId)
                 .then(globalLimiter.acquire())
-                .then(telegramClient.sendMessage(dto))
+                .then(telegramClient.sendMessage(dto)
+                .timeout(Duration.ofSeconds(10))
                 .retryWhen(retryPolicy.retry())
-                .timeout(Duration.ofSeconds(20));
+        );
     }
 }

@@ -28,7 +28,7 @@ telegram:
     send-message: /sendMessage
   timeouts:
     connect-ms: 3000
-    read-ms: 5000
+    read-ms: 15000
   ratelimit:
     per-chat-min-interval-ms: 1000
     max-global-rps: 25

@@ -25,7 +25,7 @@ public class TelegramProperties {
     @Data public static class Timeouts {
 
         private int connectMs = 3000;
-        private int readMs = 5000;
+        private int readMs = 15000;
     }
 
     @Data public static class RateLimit {
