@@ -30,12 +30,8 @@ public class TelegramService implements NotificationService {
     private final ConcurrentHashMap<Long, AtomicLong> chatLastSend = new ConcurrentHashMap<>();
 
     @Override
-    public void send(Long userId, String message) {
+    public Mono<Void> send(Long userId, String message) {
         TelegramSendRequestDto dto = TelegramRequestBuilder.buildPlain(userId, message);
-        send(dto).block();
-    }
-
-    public Mono<Void> send(TelegramSendRequestDto dto) {
         long now = System.currentTimeMillis();
         AtomicLong last = chatLastSend.computeIfAbsent(dto.chat_id(), k -> new AtomicLong(0));
         long elapsed = now - last.get();

@@ -2,15 +2,12 @@ package ru.screener.notification.integrations.telegram;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.reactive.function.client.WebClientRequestException;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
-import ru.screener.notification.config.telegram.TelegramProperties;
 import ru.screener.notification.dto.telegram.TelegramSendRequestDto;
 import ru.screener.notification.errors.telegram.RetryAfterException;
 import ru.screener.notification.errors.telegram.TooManyRequestsException;

@@ -4,5 +4,5 @@ import reactor.core.publisher.Mono;
 
 public interface NotificationService {
 
-    void send(Long userId, String message);
+    Mono<Void> send(Long userId, String message);
 }

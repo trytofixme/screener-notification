@@ -9,9 +9,12 @@ import org.springframework.kafka.listener.MessageListenerContainer;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import ru.screener.notification.config.kafka.KafkaNotificationTopicProperties;
 import ru.screener.notification.dto.rsi.RsiNotificationDto;
 import ru.screener.notification.errors.kafka.InvalidKafkaMessageException;
+import ru.screener.notification.errors.telegram.TooManyRequestsException;
+import ru.screener.notification.errors.telegram.TransientTelegramException;
 import ru.screener.notification.listener.AbstractKafkaListener;
 import ru.screener.notification.messaging.MessageBuilder;
 import ru.screener.notification.service.NotificationService;
@@ -43,7 +46,18 @@ public class BybitKafkaListener extends AbstractKafkaListener<RsiNotificationDto
 
         String messageText = getMessage(bybitEvent);
 
-        sendNotification(bybitEvent.getTelegramId(), messageText);
-        ack.acknowledge();
+        sendNotification(bybitEvent.getTelegramId(), messageText)
+                .timeout(Duration.ofSeconds(15))
+                .subscribeOn(Schedulers.boundedElastic())
+                .doOnSuccess(v -> ack.acknowledge())
+                .doOnError(ex -> {
+                    if (ex instanceof TooManyRequestsException || ex instanceof TransientTelegramException) {
+                        ack.nack(Duration.ofSeconds(10));
+                    } else {
+                        log.error("Permanent error, send to DLT", ex);
+                        ack.acknowledge();
+                    }
+                })
+                .subscribe();
     }
 }
