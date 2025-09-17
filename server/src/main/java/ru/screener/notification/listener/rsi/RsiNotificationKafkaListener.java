@@ -21,17 +21,13 @@ import java.time.Duration;
 @Slf4j
 public class RsiNotificationKafkaListener extends AbstractKafkaListener<RsiNotificationDto> {
 
-    private final KafkaListenerEndpointRegistry registry;
-
     public RsiNotificationKafkaListener(NotificationService notificationService,
-                                        KafkaListenerEndpointRegistry registry,
                                         MessageBuilder<RsiNotificationDto> messageBuilder,
                                         ObjectMapper objectMapper) {
         super(notificationService, messageBuilder, objectMapper, RsiNotificationDto.class);
-        this.registry = registry;
     }
 
-    @KafkaListener(id = "rsiListenerContainer", topics = "${app.kafka.topic.notification.name}", containerFactory = "kafkaListenerContainerFactory")
+    @KafkaListener(topics = "${app.kafka.topic.notification.name}", containerFactory = "kafkaListenerContainerFactory")
     public void listenBybitTopic(ConsumerRecord<String, String> record, Acknowledgment ack) {
         try {
             RsiNotificationDto dto = getEvent(record.value());
