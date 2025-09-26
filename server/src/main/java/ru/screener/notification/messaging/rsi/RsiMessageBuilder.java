@@ -30,7 +30,7 @@ public class RsiMessageBuilder implements MessageBuilder<RsiNotificationDto> {
     }
 
     private String circle(Direction direction) {
-        return direction == Direction.UP ? "🔴" : "🟢";
+        return direction == Direction.UP ? "🟢" : "🔴";
     }
 
     private String arrow(Direction direction) {
